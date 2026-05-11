@@ -1,0 +1,17 @@
+[project]
+name = "feed-service"
+version = "0.1.0"
+description = "Feed microservice (Redis + SQS consumer)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aioboto3>=13.2.0",
+    "fastapi>=0.115.0",
+    "pydantic-settings>=2.6.0",
+    "python-jose[cryptography]>=3.3.0",
+    "redis>=5.2.0",
+    "uvicorn[standard]>=0.32.0",
+]
+
+[tool.uv]
+package = false
