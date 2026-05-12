@@ -7,7 +7,7 @@ import redis.asyncio as redis
 
 from app.core.consumer import consume_loop
 from app.core.config import settings
-from app.routers import feed, health
+from app.api import feed, health
 
 logging.basicConfig(level=logging.INFO)
 
