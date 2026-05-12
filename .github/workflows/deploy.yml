@@ -8,7 +8,7 @@ env:
   
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
   AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID || '000000000000' }}
-  ECR_REPOSITORY: feed-service
+  ECR_REPOSITORY: yasna-localstack-repo
   K8S_DEPLOYMENT: feed-service
   K8S_CONTAINER: feed-service
 jobs:
@@ -30,9 +30,6 @@ jobs:
         id: ecr
         run: |
           REGISTRY="000000000000.dkr.ecr.${{ env.AWS_REGION }}.localhost.localstack.cloud:4566"
-
-          aws ecr get-login-password | \
-            docker login --username AWS --password-stdin "$REGISTRY"
           echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
         
       - name: Build and push image
