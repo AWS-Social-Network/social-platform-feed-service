@@ -8,7 +8,7 @@ env:
   
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
   AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID || '000000000000' }}
-  ECR_REPOSITORY: yasna-localstack-repo/
+  ECR_REPOSITORY: yasna-localstack-repo/feed-service
   K8S_DEPLOYMENT: feed-service
   K8S_CONTAINER: feed-service
 jobs:
