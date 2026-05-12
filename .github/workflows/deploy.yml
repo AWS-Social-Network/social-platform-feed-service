@@ -31,11 +31,6 @@ jobs:
         run: |
           REGISTRY="000000000000.dkr.ecr.us-east-1.aws-localstack-server:4566/yasna-localstack-repo"
 
-          aws --endpoint-url="${{ env.AWS_ENDPOINT_URL }}" \
-            ecr get-login-password \
-            --region "${{ env.AWS_REGION }}" | \
-            docker login --username AWS --password-stdin "$REGISTRY"
-
           echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
         
       - name: Build and push image
