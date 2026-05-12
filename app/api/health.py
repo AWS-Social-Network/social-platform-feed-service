@@ -5,7 +5,7 @@ from app.dependencies.get_redis import RedisDep
 
 router = APIRouter(prefix="/health", tags=["Health"])
 
-@router.get("/health")
+@router.get("/")
 async def health(redis: RedisDep):
     try:
         pong = await redis.ping()
