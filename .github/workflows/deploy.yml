@@ -26,11 +26,17 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           
-      - name: Set LocalStack ECR Registry
+      - name: ECR login and create repo if missing
         id: ecr
         run: |
-          # Skip 'docker login' entirely. LocalStack accepts unauthenticated pushes.
-          echo "registry=000000000000.dkr.ecr.us-east-1.aws-localstack-server:4566/yasna-localstack-repo" >> $GITHUB_OUTPUT
+          REGISTRY="000000000000.dkr.ecr.${{ env.AWS_REGION }}.localhost.localstack.cloud:4566"
+
+          aws --endpoint-url="${{ env.AWS_ENDPOINT_URL }}" \
+            ecr get-login-password \
+            --region "${{ env.AWS_REGION }}" | \
+            docker login --username AWS --password-stdin "$REGISTRY"
+
+          echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
         
       - name: Build and push image
         env:
