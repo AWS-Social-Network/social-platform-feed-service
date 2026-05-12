@@ -16,7 +16,10 @@ _session = aioboto3.Session()
 
 
 def _sqs_kwargs() -> dict[str, Any]:
-    return {"region_name": settings.aws_region}
+    kw: dict[str, Any] = {"region_name": settings.aws_region}
+    if settings.sqs_endpoint_url:
+        kw["endpoint_url"] = settings.sqs_endpoint_url
+    return kw
 
 
 def _parse_created_at(created_at: str) -> float:

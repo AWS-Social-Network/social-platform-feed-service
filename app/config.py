@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -6,6 +7,10 @@ class Settings(BaseSettings):
 
     aws_region: str = "us-east-1"
     sqs_queue_url: str
+    sqs_endpoint_url: str | None = Field(
+        default=None,
+        description="e.g. http://127.0.0.1:4566 for LocalStack SQS",
+    )
 
     redis_url: str = "redis://localhost:6379/0"
 
