@@ -1,20 +1,21 @@
 import json
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 
-from app.redis_client import get_redis
-from app.security import get_current_user
+from app.dependencies.get_current_user import CurrentUserDep
+from app.dependencies.get_redis import RedisDep
 
-router = APIRouter(prefix="/feed")
+
+router = APIRouter(prefix="/feed", tags=["Feed"])
 
 
 @router.get("/{user_id}")
 async def get_feed(
     user_id: str,
+    current_user: CurrentUserDep,
+    redis: RedisDep,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    current_user: dict = Depends(get_current_user),
-    redis=Depends(get_redis),
 ):
     _ = current_user
     feed_key = f"feed:{user_id}"

@@ -5,10 +5,12 @@ from datetime import UTC, datetime
 from time import time
 from typing import Any
 
-import aioboto3
 
-from app.config import settings
-from app.redis_client import get_redis
+from app.core.config import settings
+
+
+import aioboto3
+from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +35,7 @@ def _parse_created_at(created_at: str) -> float:
         return time()
 
 
-async def _handle_new_post(payload: dict[str, Any], redis) -> None:
+async def _handle_new_post(payload: dict[str, Any], redis: Redis) -> None:
     post_id = str(payload["post_id"])
     author_id = str(payload["author_id"])
     created_at = str(payload.get("created_at", ""))
@@ -49,18 +51,23 @@ async def _handle_new_post(payload: dict[str, Any], redis) -> None:
         }
     )
     score = _parse_created_at(created_at)
+    async with redis.pipeline(transaction=False) as pipe:
+        for user_id in follower_ids:
+            feed_key = f"feed:{user_id}"
+            dedup_key = f"dedup:{post_id}:{user_id}"
+            pipe.zadd(f"feed:{user_id}", {member: score}, nx=True)
+            
+        results = await pipe.execute()
+        for idx, user_id in enumerate(follower_ids):
+            if results[idx]:
+                feed_key = f"feed:{user_id}"
+                dedup_key = f"dedup:{post_id}:{user_id}"
 
-    for user_id in follower_ids:
-        feed_key = f"feed:{user_id}"
-        dedup_key = f"dedup:{post_id}:{user_id}"
+                card = await redis.zcard(feed_key)
+                if card > settings.feed_max_length:
+                    await redis.zremrangebyrank(feed_key, 0, card - settings.feed_max_length - 1)
 
-        added = await redis.zadd(feed_key, {member: score}, nx=True)
-        if added:
-            card = await redis.zcard(feed_key)
-            if card > settings.feed_max_length:
-                to_drop = card - settings.feed_max_length
-                await redis.zremrangebyrank(feed_key, 0, to_drop - 1)
-            await redis.set(dedup_key, "1", ex=settings.dedup_ttl_seconds)
+                await redis.set(dedup_key, "1", ex=settings.dedup_ttl_seconds)
 
 
 async def process_message(body: str, redis) -> None:
@@ -73,8 +80,7 @@ async def process_message(body: str, redis) -> None:
         logger.debug("Ignoring event_type=%s", event_type)
 
 
-async def consume_loop() -> None:
-    redis = await get_redis()
+async def consume_loop(redis: Redis) -> None:
     logger.info("SQS consumer started, polling %s", settings.sqs_queue_url)
 
     async with _session.client("sqs", **_sqs_kwargs()) as sqs:
