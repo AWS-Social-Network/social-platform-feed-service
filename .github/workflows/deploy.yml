@@ -25,24 +25,15 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - name: Configure Docker Insecure Registry dynamically
+          
+      - name: Login to LocalStack ECR via CLI
+        id: ecr
         run: |
-          # Dynamically fetch the Account ID from LocalStack to avoid hardcoding "000000000000"
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          
-          # Construct the exact registry URL that the SDK will build
-          REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.localhost.localstack.cloud:4566"
-          
-          # Append to Docker daemon configuration
-          echo "{\"insecure-registries\": [\"$REGISTRY\"]}" | sudo tee /etc/docker/daemon.json
-          
-          # Restart Docker to apply changes
-          sudo systemctl restart docker
-          
-      - id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
+            aws ecr get-login-password \
+              | docker login --username AWS --password-stdin localhost:4566
+              
+            echo "registry=localhost:4566" >> $GITHUB_OUTPUT
+        
       - name: Build and push image
         env:
           IMAGE_TAG: ${{ github.sha }}
