@@ -25,13 +25,22 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           
-      - name: ECR login
+      - name: ECR login and create repo if missing
+        id: ecr
         run: |
-          # 1. Get the password from LocalStack (using standard AWS CLI with endpoint)
-          aws ecr get-login-password | \
-          
-          # 2. Login to the "Magic Domain" (NOT localhost:4566)
-          docker login --username AWS --password-stdin localhost.localstack.cloud:4566
+          REGISTRY="000000000000.dkr.ecr.${{ env.AWS_REGION }}.localhost.localstack.cloud:4566"
+
+          # aws --endpoint-url="${{ env.AWS_ENDPOINT_URL }}" \
+          #   ecr create-repository \
+          #   --repository-name "${{ env.ECR_REPOSITORY }}" \
+          #   --region "${{ env.AWS_REGION }}" 2>/dev/null || true
+
+          aws --endpoint-url="${{ env.AWS_ENDPOINT_URL }}" \
+            ecr get-login-password \
+            --region "${{ env.AWS_REGION }}" | \
+            docker login --username AWS --password-stdin "$REGISTRY"
+
+          echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
 
       - name: Build and push image
         env:
