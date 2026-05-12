@@ -27,8 +27,16 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
+      - name: Login to LocalStack ECR
+        id: ecr
+        run: |
+          # Strip http:// or https:// to get the raw domain and port for Docker
+          REGISTRY_HOST=$(echo "${{ env.AWS_ENDPOINT_URL }}" | sed -E 's|^https?://||; s|/.*$||')
+          
+          # Use AWS CLI to get the password (respects AWS_ENDPOINT_URL automatically)
+          aws ecr get-login-password --region "${{ env.AWS_REGION }}" | docker login --username AWS --password-stdin "$REGISTRY_HOST"
+          
+          echo "registry=$REGISTRY_HOST/000000000000" >> "$GITHUB_OUTPUT"
 
       - name: Build and push image
         env:
