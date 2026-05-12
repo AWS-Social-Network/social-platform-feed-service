@@ -24,15 +24,14 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to LocalStack ECR
-        id: ecr
+          
+      - name: ECR login
         run: |
-          ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.localhost.localstack.cloud:4566"
-          # AWS_ENDPOINT_URL is already set globally — no need for --endpoint-url here
-          aws ecr get-login-password --region "$AWS_REGION" \
-            | docker login --username AWS --password-stdin "http://${ECR_REGISTRY}"
-          echo "registry=${ECR_REGISTRY}" >> "$GITHUB_OUTPUT"
+          # 1. Get the password from LocalStack (using standard AWS CLI with endpoint)
+          aws ecr get-login-password | \
+          
+          # 2. Login to the "Magic Domain" (NOT localhost:4566)
+          docker login --username AWS --password-stdin localhost.localstack.cloud:4566
 
       - name: Build and push image
         env:
