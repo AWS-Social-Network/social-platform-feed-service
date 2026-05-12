@@ -29,8 +29,7 @@ jobs:
       - name: ECR login and create repo if missing
         id: ecr
         run: |
-          REGISTRY="000000000000.dkr.ecr.us-east-1.aws-localstack-server:4566/yasna-localstack-repo"
-
+          REGISTRY="localhost:4510/yasna-localstack-repo"
           echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
         
       - name: Build and push image
