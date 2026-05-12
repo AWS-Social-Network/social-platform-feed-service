@@ -29,7 +29,10 @@ jobs:
       - name: ECR login and create repo if missing
         id: ecr
         run: |
-          REGISTRY="localhost:4510/yasna-localstack-repo"
+          REGISTRY="000000000000.dkr.ecr.${{ env.AWS_REGION }}.localhost.localstack.cloud:4566"
+
+          aws ecr get-login-password \
+            docker login --username AWS --password-stdin "$REGISTRY"
           echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
         
       - name: Build and push image
