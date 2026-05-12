@@ -33,9 +33,10 @@ jobs:
           # Strip http:// or https:// to get the raw domain and port for Docker
           REGISTRY_HOST=$(echo "${{ env.AWS_ENDPOINT_URL }}" | sed -E 's|^https?://||; s|/.*$||')
           
-          # Use AWS CLI to get the password (respects AWS_ENDPOINT_URL automatically)
-          aws ecr get-login-password --region "${{ env.AWS_REGION }}" | docker login --username AWS --password-stdin "$REGISTRY_HOST"
+          # Bypass the AWS CLI entirely. LocalStack accepts dummy credentials.
+          echo "localstack" | docker login --username "localstack" --password-stdin "$REGISTRY_HOST"
           
+          # Output the registry path with LocalStack's default account ID (000000000000)
           echo "registry=$REGISTRY_HOST/000000000000" >> "$GITHUB_OUTPUT"
 
       - name: Build and push image
