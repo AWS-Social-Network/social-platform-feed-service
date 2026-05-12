@@ -29,7 +29,7 @@ jobs:
       - name: ECR login and create repo if missing
         id: ecr
         run: |
-          REGISTRY="000000000000.dkr.ecr.${{ env.AWS_REGION }}.localhost.localstack.cloud:4566"
+          REGISTRY="000000000000.dkr.ecr.us-east-1.aws-localstack-server:4566/yasna-localstack-repo"
 
           aws --endpoint-url="${{ env.AWS_ENDPOINT_URL }}" \
             ecr get-login-password \
