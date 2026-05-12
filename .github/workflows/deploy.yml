@@ -25,14 +25,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # Must run before docker login so the daemon accepts the insecure registry
-      - name: Configure Docker insecure registry
-        run: |
-          ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.localhost.localstack.cloud:4566"
-          sudo mkdir -p /etc/docker
-          echo "{\"insecure-registries\": [\"${ECR_REGISTRY}\"]}" | sudo tee /etc/docker/daemon.json
-          sudo systemctl restart docker
-
       - name: Login to LocalStack ECR
         id: ecr
         run: |
