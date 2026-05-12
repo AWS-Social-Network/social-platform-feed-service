@@ -31,7 +31,7 @@ jobs:
         run: |
           REGISTRY="000000000000.dkr.ecr.${{ env.AWS_REGION }}.localhost.localstack.cloud:4566"
 
-          aws ecr get-login-password \
+          aws ecr get-login-password | \
             docker login --username AWS --password-stdin "$REGISTRY"
           echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
         
