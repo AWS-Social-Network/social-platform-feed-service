@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 env:
+  AWS_ENDPOINT_URL: ${{ secrets.LOCALSTACK_ENDPOINT }}
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
   ECR_REPOSITORY: feed-service
   K8S_DEPLOYMENT: feed-service
