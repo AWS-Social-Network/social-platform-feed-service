@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import UTC, datetime
 from time import time
-from typing import Any
+from typing import Any, cast
 
 
 from app.core.config import settings
@@ -11,6 +11,7 @@ from app.core.config import settings
 
 import aioboto3
 from redis.asyncio import Redis
+from types_aiobotocore_sqs.client import SQSClient
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ def _sqs_kwargs() -> dict[str, Any]:
     return kw
 
 
-def _parse_created_at(created_at: str) -> float:
+def _parse_created_at(created_at: str, post_id: str) -> float:
     try:
         s = created_at.replace("Z", "+00:00")
         dt = datetime.fromisoformat(s)
@@ -32,6 +33,9 @@ def _parse_created_at(created_at: str) -> float:
             dt = dt.replace(tzinfo=UTC)
         return dt.timestamp()
     except ValueError:
+        logger.warning(
+            f"Unparseable created_at={created_at} for post_id={post_id}, using now"
+        )
         return time()
 
 
@@ -50,24 +54,39 @@ async def _handle_new_post(payload: dict[str, Any], redis: Redis) -> None:
             "created_at": created_at,
         }
     )
-    score = _parse_created_at(created_at)
-    async with redis.pipeline(transaction=False) as pipe:
+    write_count = 0
+    score = _parse_created_at(created_at, post_id)
+
+    async with redis.pipeline(transaction=False) as add_pipe:
         for user_id in follower_ids:
             feed_key = f"feed:{user_id}"
-            dedup_key = f"dedup:{post_id}:{user_id}"
-            pipe.zadd(f"feed:{user_id}", {member: score}, nx=True)
-            
-        results = await pipe.execute()
+            add_pipe.zadd(feed_key, {member: score}, nx=True)
+
+        results = await add_pipe.execute()
+
+    async with redis.pipeline(transaction=False) as cards_pipe:
         for idx, user_id in enumerate(follower_ids):
             if results[idx]:
                 feed_key = f"feed:{user_id}"
                 dedup_key = f"dedup:{post_id}:{user_id}"
+                cards_pipe.zcard(feed_key)
+        cards = await cards_pipe.execute()
 
-                card = await redis.zcard(feed_key)
+    async with redis.pipeline(transaction=False) as trim_pipe:
+        for idx, (user_id, card) in enumerate(zip(follower_ids, cards)):
+            if results[idx]:
+                write_count += 1
+                feed_key = f"feed:{user_id}"
+                dedup_key = f"dedup:{post_id}:{user_id}"
                 if card > settings.feed_max_length:
-                    await redis.zremrangebyrank(feed_key, 0, card - settings.feed_max_length - 1)
-
-                await redis.set(dedup_key, "1", ex=settings.dedup_ttl_seconds)
+                    trim_pipe.zremrangebyrank(
+                        feed_key, 0, card - settings.feed_max_length - 1
+                    )
+                trim_pipe.set(dedup_key, "1", ex=settings.dedup_ttl_seconds)
+        await trim_pipe.execute()
+    logger.info(
+        f"Fan-out complete post_id={post_id} followers={len(follower_ids)} written={write_count}",
+    )
 
 
 async def process_message(body: str, redis) -> None:
@@ -77,13 +96,13 @@ async def process_message(body: str, redis) -> None:
     if event_type == "new_post":
         await _handle_new_post(payload, redis)
     else:
-        logger.debug("Ignoring event_type=%s", event_type)
+        logger.debug(f"Ignoring event_type={event_type}")
 
 
 async def consume_loop(redis: Redis) -> None:
     logger.info("SQS consumer started, polling %s", settings.sqs_queue_url)
 
-    async with _session.client("sqs", **_sqs_kwargs()) as sqs:
+    async with cast(SQSClient, _session.client("sqs", **_sqs_kwargs())) as sqs:
         while True:
             try:
                 resp = await sqs.receive_message(
@@ -94,15 +113,23 @@ async def consume_loop(redis: Redis) -> None:
                 )
                 messages = resp.get("Messages", [])
                 for msg in messages:
-                    receipt = msg["ReceiptHandle"]
+                    receipt = msg.get("ReceiptHandle")
+                    body = msg.get("Body")
+                    if not (body and receipt):
+                        logger.error(
+                            f"Invalid message: missing body or receipt: {msg.get("MessageId")}"
+                        )
+                        continue
                     try:
-                        await process_message(msg["Body"], redis)
+                        await process_message(body, redis)
                         await sqs.delete_message(
                             QueueUrl=settings.sqs_queue_url,
                             ReceiptHandle=receipt,
                         )
                     except Exception:
-                        logger.exception("Message left for retry: %s", msg.get("MessageId"))
+                        logger.exception(
+                            f"Message left for retry: {msg.get("MessageId")}"
+                        )
             except asyncio.CancelledError:
                 raise
             except Exception:
