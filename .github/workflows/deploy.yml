@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 env:
   AWS_ENDPOINT_URL: ${{ secrets.LOCALSTACK_ENDPOINT }}
+  
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
   AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID || '000000000000' }}
   ECR_REPOSITORY: feed-service
@@ -25,22 +26,8 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           
-      - name: ECR login and create repo if missing
-        id: ecr
-        run: |
-          REGISTRY="000000000000.dkr.ecr.${{ env.AWS_REGION }}.localhost.localstack.cloud:4566"
-
-          # aws --endpoint-url="${{ env.AWS_ENDPOINT_URL }}" \
-          #   ecr create-repository \
-          #   --repository-name "${{ env.ECR_REPOSITORY }}" \
-          #   --region "${{ env.AWS_REGION }}" 2>/dev/null || true
-
-          aws --endpoint-url="${{ env.AWS_ENDPOINT_URL }}" \
-            ecr get-login-password \
-            --region "${{ env.AWS_REGION }}" | \
-            docker login --username AWS --password-stdin "$REGISTRY"
-
-          echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and push image
         env:
