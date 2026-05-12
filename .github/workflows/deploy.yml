@@ -1,17 +1,15 @@
 name: Build and deploy
-
 on:
   push:
     branches: [main]
   workflow_dispatch:
-
 env:
   AWS_ENDPOINT_URL: ${{ secrets.LOCALSTACK_ENDPOINT }}
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID || '000000000000' }}
   ECR_REPOSITORY: feed-service
   K8S_DEPLOYMENT: feed-service
   K8S_CONTAINER: feed-service
-
 jobs:
   deploy:
     runs-on: self-hosted
@@ -27,36 +25,42 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # Must run before docker login so the daemon accepts the insecure registry
+      - name: Configure Docker insecure registry
+        run: |
+          ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.localhost.localstack.cloud:4566"
+          sudo mkdir -p /etc/docker
+          echo "{\"insecure-registries\": [\"${ECR_REGISTRY}\"]}" | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+
       - name: Login to LocalStack ECR
         id: ecr
         run: |
-          # Strip http:// or https:// to get the raw domain and port for Docker
-          REGISTRY_HOST=$(echo "${{ env.AWS_ENDPOINT_URL }}" | sed -E 's|^https?://||; s|/.*$||')
-          
-          # Bypass the AWS CLI entirely. LocalStack accepts dummy credentials.
-          echo "localstack" | docker login --username "localstack" --password-stdin "$REGISTRY_HOST"
-          
-          # Output the registry path with LocalStack's default account ID (000000000000)
-          echo "registry=$REGISTRY_HOST/000000000000" >> "$GITHUB_OUTPUT"
+          ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.localhost.localstack.cloud:4566"
+          # AWS_ENDPOINT_URL is already set globally — no need for --endpoint-url here
+          aws ecr get-login-password --region "$AWS_REGION" \
+            | docker login --username AWS --password-stdin "http://${ECR_REGISTRY}"
+          echo "registry=${ECR_REGISTRY}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push image
         env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
-          docker push "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-          echo "IMAGE_URI=$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_ENV"
+          ECR_REGISTRY="${{ steps.ecr.outputs.registry }}"
+          docker build -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" .
+          docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          echo "IMAGE_URI=${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" >> "$GITHUB_ENV"
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
         with:
           version: "v1.30.0"
 
-      - name: kubeconfig
-        run: aws eks update-kubeconfig --name "${{ secrets.EKS_CLUSTER_NAME }}" --region "${{ env.AWS_REGION }}"
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name "${{ secrets.EKS_CLUSTER_NAME }}" --region "$AWS_REGION"
 
       - name: Rollout new image
         run: |
-          kubectl -n default set image "deployment/$K8S_DEPLOYMENT" "$K8S_CONTAINER=$IMAGE_URI" --record
+          # --record is deprecated and removed in kubectl v1.28+
+          kubectl -n default set image "deployment/$K8S_DEPLOYMENT" "$K8S_CONTAINER=$IMAGE_URI"
           kubectl -n default rollout status "deployment/$K8S_DEPLOYMENT" --timeout=5m
