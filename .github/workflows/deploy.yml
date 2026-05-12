@@ -29,7 +29,7 @@ jobs:
       - name: ECR login and create repo if missing
         id: ecr
         run: |
-          REGISTRY="000000000000.dkr.ecr.${{ env.AWS_REGION }}.localhost.localstack.cloud:4566"
+          REGISTRY="000000000000.dkr.ecr.${{ env.AWS_REGION }}.100.103.114.31:4566"
           echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
         
       - name: Build and push image
