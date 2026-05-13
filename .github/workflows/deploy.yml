@@ -43,6 +43,16 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.30.0"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.15.0"
+
       - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig \
@@ -50,11 +60,6 @@ jobs:
             --region "$AWS_REGION"
           kubectl config set-cluster "$(kubectl config current-context)" \
             --insecure-skip-tls-verify=true
-
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: "v3.15.0"
 
       - name: Deploy via Helm
         run: |
