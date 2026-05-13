@@ -16,18 +16,21 @@ imagePullSecret:
 services:
   auth-service:
     image: hashicorp/http-echo:0.2.3
+    args: ["-text=auth-service"]
     replicas: 2
     containerPort: 80
     nodePort: 30080
 
-  feed-service:
+  post-service:
     image: hashicorp/http-echo:0.2.3
+    args: ["-text=post-service"]
     replicas: 2
     containerPort: 80
-    nodePort: 30082
+    nodePort: 30081
 
-  - name: feed-service
+  feed-service:
     image: hashicorp/http-echo:0.2.3
+    args: ["-text=feed-service"]
     replicas: 2
     containerPort: 80
     nodePort: 30082
