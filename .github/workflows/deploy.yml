@@ -67,6 +67,6 @@ jobs:
             --namespace social-app \
             --create-namespace \
             --set imagePullSecret.password="${{ secrets.GHCR_PAT }}" \
-            --set-json 'services[2].image="${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"' \
+            --set "services[2].image=${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" \
             --wait \
             --timeout 5m
