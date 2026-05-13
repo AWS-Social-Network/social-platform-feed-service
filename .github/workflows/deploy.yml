@@ -55,8 +55,9 @@ jobs:
         run: |
           aws eks update-kubeconfig \
             --name "${{ secrets.EKS_CLUSTER_NAME }}" \
-            --region "$AWS_REGION" \
-            --insecure-skip-tls-verify
+            --region "$AWS_REGION"
+          kubectl config set-cluster "$(kubectl config current-context)" \
+            --insecure-skip-tls-verify=true
 
       - name: Rollout new image
         run: |
