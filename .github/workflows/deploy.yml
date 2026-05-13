@@ -4,6 +4,7 @@ on:
     branches: [main]
   workflow_dispatch:
 env:
+  AWS_ENDPOINT_URL: ${{ secrets.LOCALSTACK_ENDPOINT }}
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
   K8S_DEPLOYMENT: feed-service
   K8S_CONTAINER: feed-service
