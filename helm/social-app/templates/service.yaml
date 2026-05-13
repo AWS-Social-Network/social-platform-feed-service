@@ -1,20 +1,19 @@
 ###############################################################
 # templates/service.yaml
-# Equivalent to the former kubernetes_service.services[*]
 ###############################################################
-{{- range .Values.services }}
+{{- range $name, $svc := .Values.services }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .name }}-svc
+  name: {{ $name }}-svc
   namespace: {{ $.Values.namespace }}
 spec:
   type: NodePort
   selector:
-    app: {{ .name }}
+    app: {{ $name }}
   ports:
-    - port: {{ .containerPort }}
-      targetPort: {{ .containerPort }}
-      nodePort: {{ .nodePort }}
+    - port: {{ $svc.containerPort }}
+      targetPort: {{ $svc.containerPort }}
+      nodePort: {{ $svc.nodePort }}
 {{- end }}

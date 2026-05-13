@@ -12,24 +12,22 @@ imagePullSecret:
   username: AWS-Social-Network
   # password: ""   ← never commit; pass via --set imagePullSecret.password=$GHCR_PAT
 
+# values.yaml
 services:
-  - name: auth-service
-    image: hashicorp/http-echo:0.2.3   # replace with your real image
-    args: ["-text=auth-service"]
+  auth-service:
+    image: hashicorp/http-echo:0.2.3
     replicas: 2
     containerPort: 80
     nodePort: 30080
 
-  - name: post-service
+  feed-service:
     image: hashicorp/http-echo:0.2.3
-    args: ["-text=post-service"]
     replicas: 2
     containerPort: 80
-    nodePort: 30081
+    nodePort: 30082
 
   - name: feed-service
     image: hashicorp/http-echo:0.2.3
-    args: ["-text=feed-service"]
     replicas: 2
     containerPort: 80
     nodePort: 30082
