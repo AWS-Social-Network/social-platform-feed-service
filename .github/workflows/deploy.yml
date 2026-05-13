@@ -61,12 +61,20 @@ jobs:
           kubectl config set-cluster "$(kubectl config current-context)" \
             --insecure-skip-tls-verify=true
 
+      - name: Adopt namespace for Helm
+        run: |
+          kubectl create namespace social-app --dry-run=client -o yaml | kubectl apply -f -
+          kubectl label namespace social-app app.kubernetes.io/managed-by=Helm --overwrite
+          kubectl annotate namespace social-app \
+            meta.helm.sh/release-name=social-app \
+            meta.helm.sh/release-namespace=social-app \
+            --overwrite
+
       - name: Deploy via Helm
         run: |
           helm upgrade --install social-app helm/social-app \
             --namespace social-app \
-            --create-namespace \
             --set imagePullSecret.password="${{ secrets.GHCR_PAT }}" \
-            --set "services.feed-service.image=${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+            --set "services.feed-service.image=${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" \
             --wait \
             --timeout 5m
