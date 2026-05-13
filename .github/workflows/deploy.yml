@@ -4,43 +4,44 @@ on:
     branches: [main]
   workflow_dispatch:
 env:
-  AWS_ENDPOINT_URL: ${{ secrets.LOCALSTACK_ENDPOINT }}
-  
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID || '000000000000' }}
-  ECR_REPOSITORY: yasna-localstack-repo
   K8S_DEPLOYMENT: feed-service
   K8S_CONTAINER: feed-service
+  # ghcr.io/your-org/feed-service
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/feed-service
 jobs:
   deploy:
     runs-on: self-hosted
     permissions:
       id-token: write
       contents: read
+      packages: write   # required to push to ghcr.io
     steps:
       - uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t "${IMAGE_NAME}:${IMAGE_TAG}" .
+          # Also tag as latest for convenience
+          docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${IMAGE_NAME}:latest"
+          docker push "${IMAGE_NAME}:${IMAGE_TAG}"
+          docker push "${IMAGE_NAME}:latest"
+          echo "IMAGE_URI=${IMAGE_NAME}:${IMAGE_TAG}" >> "$GITHUB_ENV"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-          
-      - name: ECR login and create repo if missing
-        id: ecr
-        run: |
-          REGISTRY="000000000000.dkr.ecr.${{ env.AWS_REGION }}.100.103.114.31:4566"
-          echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
-        
-      - name: Build and push image
-        env:
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          ECR_REGISTRY="${{ steps.ecr.outputs.registry }}"
-          docker build -t "${ECR_REPOSITORY}" .
-          docker tag "${ECR_REPOSITORY}:latest" "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-          docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-          echo "IMAGE_URI=${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" >> "$GITHUB_ENV"
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
@@ -52,6 +53,5 @@ jobs:
 
       - name: Rollout new image
         run: |
-          # --record is deprecated and removed in kubectl v1.28+
           kubectl -n default set image "deployment/$K8S_DEPLOYMENT" "$K8S_CONTAINER=$IMAGE_URI"
           kubectl -n default rollout status "deployment/$K8S_DEPLOYMENT" --timeout=5m
