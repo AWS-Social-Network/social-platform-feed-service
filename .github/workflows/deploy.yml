@@ -69,6 +69,11 @@ jobs:
             meta.helm.sh/release-name=social-app \
             meta.helm.sh/release-namespace=social-app \
             --overwrite
+          kubectl label secret ghcr-pull-secret -n social-app app.kubernetes.io/managed-by=Helm --overwrite
+          kubectl annotate secret ghcr-pull-secret -n social-app \
+            meta.helm.sh/release-name=social-app \
+            meta.helm.sh/release-namespace=social-app \
+            --overwrite
 
       - name: Deploy via Helm
         run: |
