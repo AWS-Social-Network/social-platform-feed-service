@@ -18,7 +18,7 @@ spec:
       serviceAccountName: feed-service
       containers:
         - name: feed-service
-          image: ACCOUNT_ID.dkr.ecr.AWS_REGION.amazonaws.com/feed-service:latest
+          image: ghcr.io/YOUR_ORG/feed-service:latest
           ports:
             - containerPort: 8000
           env:
