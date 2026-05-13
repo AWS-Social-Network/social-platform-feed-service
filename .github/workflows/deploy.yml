@@ -38,7 +38,6 @@ jobs:
           docker build -t "${IMAGE_NAME}:${IMAGE_TAG}" .
           docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${IMAGE_NAME}:latest"
           docker push "${IMAGE_NAME}:${IMAGE_TAG}"
-          docker push "${IMAGE_NAME}:latest"
           echo "IMAGE_URI=${IMAGE_NAME}:${IMAGE_TAG}" >> "$GITHUB_ENV"
 
       - name: Configure AWS credentials
@@ -53,9 +52,14 @@ jobs:
           version: "v1.30.0"
 
       - name: Update kubeconfig
-        run: aws eks update-kubeconfig --name "${{ secrets.EKS_CLUSTER_NAME }}" --region "$AWS_REGION"
+        run: |
+          aws eks update-kubeconfig \
+            --name "${{ secrets.EKS_CLUSTER_NAME }}" \
+            --region "$AWS_REGION"
+          kubectl config set-cluster "$(kubectl config current-context)" \
+            --insecure-skip-tls-verify=true
 
       - name: Rollout new image
         run: |
-          kubectl -n default set image "deployment/$K8S_DEPLOYMENT" "$K8S_CONTAINER=$IMAGE_URI"
-          kubectl -n default rollout status "deployment/$K8S_DEPLOYMENT" --timeout=5m
+          kubectl set image "deployment/$K8S_DEPLOYMENT" "$K8S_CONTAINER=$IMAGE_URI"
+          kubectl rollout status "deployment/$K8S_DEPLOYMENT" --timeout=5m
