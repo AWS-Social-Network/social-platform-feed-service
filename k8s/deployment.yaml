@@ -18,7 +18,7 @@ spec:
       serviceAccountName: feed-service
       containers:
         - name: feed-service
-          image: ghcr.io/YOUR_ORG/feed-service:latest
+          image: ghcr.io/AWS-Social-Network/feed-service:latest
           ports:
             - containerPort: 8000
           env:
