@@ -61,5 +61,5 @@ jobs:
 
       - name: Rollout new image
         run: |
-          kubectl -n social-app set image "deployment/$K8S_DEPLOYMENT" "$K8S_CONTAINER=$IMAGE_URI"
-          kubectl -n social-app rollout status "deployment/$K8S_DEPLOYMENT" --timeout=5m
+          kubectl set image "deployment/$K8S_DEPLOYMENT" "$K8S_CONTAINER=$IMAGE_URI"
+          kubectl rollout status "deployment/$K8S_DEPLOYMENT" --timeout=5m
