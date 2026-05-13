@@ -38,7 +38,6 @@ jobs:
           docker build -t "${IMAGE_NAME}:${IMAGE_TAG}" .
           docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${IMAGE_NAME}:latest"
           docker push "${IMAGE_NAME}:${IMAGE_TAG}"
-          docker push "${IMAGE_NAME}:latest"
           echo "IMAGE_URI=${IMAGE_NAME}:${IMAGE_TAG}" >> "$GITHUB_ENV"
 
       - name: Configure AWS credentials
@@ -57,5 +56,5 @@ jobs:
 
       - name: Rollout new image
         run: |
-          kubectl -n default set image "deployment/$K8S_DEPLOYMENT" "$K8S_CONTAINER=$IMAGE_URI"
-          kubectl -n default rollout status "deployment/$K8S_DEPLOYMENT" --timeout=5m
+          kubectl -n social-app set image "deployment/$K8S_DEPLOYMENT" "$K8S_CONTAINER=$IMAGE_URI"
+          kubectl -n social-app rollout status "deployment/$K8S_DEPLOYMENT" --timeout=5m
