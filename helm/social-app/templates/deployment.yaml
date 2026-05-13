@@ -1,0 +1,32 @@
+###############################################################
+# templates/deployment.yaml
+# Equivalent to the former kubernetes_deployment.services[*]
+###############################################################
+{{- range .Values.services }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    app: {{ .name }}
+spec:
+  replicas: {{ .replicas }}
+  selector:
+    matchLabels:
+      app: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .name }}
+    spec:
+      imagePullSecrets:
+        - name: {{ $.Values.imagePullSecret.name }}
+      containers:
+        - name: {{ .name }}
+          image: {{ .image }}
+          args: {{ .args | toJson }}
+          ports:
+            - containerPort: {{ .containerPort }}
+{{- end }}
