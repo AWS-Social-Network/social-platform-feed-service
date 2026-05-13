@@ -56,18 +56,32 @@ async def _handle_new_post(payload: dict[str, Any], redis: Redis) -> None:
     )
     score = _parse_created_at(created_at, post_id)
 
-    async with redis.pipeline(transaction=False) as pipe:
+    async with redis.pipeline(transaction=False) as add_pipe:
         for user_id in follower_ids:
             feed_key = f"feed:{user_id}"
-            dedup_key = f"dedup:{post_id}:{user_id}"
+            add_pipe.zadd(feed_key, {member: score}, nx=True)
 
-            pipe.zadd(feed_key, {member: score}, nx=True)
+        results = await add_pipe.execute()
 
-            pipe.zremrangebyrank(feed_key, 0, -(settings.feed_max_length + 1))
+    async with redis.pipeline(transaction=False) as cards_pipe:
+        for idx, user_id in enumerate(follower_ids):
+            if results[idx]:
+                feed_key = f"feed:{user_id}"
+                dedup_key = f"dedup:{post_id}:{user_id}"
+                cards_pipe.zcard(feed_key)
+        cards = await cards_pipe.execute()
 
-            pipe.set(dedup_key, "1", ex=settings.dedup_ttl_seconds, nx=True)
-        
-    await pipe.execute()
+    async with redis.pipeline(transaction=False) as trim_pipe:
+        for idx, (user_id, card) in enumerate(zip(follower_ids, cards)):
+            if results[idx]:
+                feed_key = f"feed:{user_id}"
+                dedup_key = f"dedup:{post_id}:{user_id}"
+                if card > settings.feed_max_length:
+                    trim_pipe.zremrangebyrank(
+                        feed_key, 0, card - settings.feed_max_length - 1
+                    )
+                trim_pipe.set(dedup_key, "1", ex=settings.dedup_ttl_seconds)
+        await trim_pipe.execute()
 
 
 async def process_message(body: str, redis) -> None:
